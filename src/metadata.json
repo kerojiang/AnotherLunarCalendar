@@ -1,0 +1,10 @@
+{
+  "name": "Another Lunar Calendar",
+  "description": "中国万年历包括农历凶吉和节假日显示",
+  "uuid": "another-lunar-calendar@kerojiang.com",
+  "shell-version": [
+    "3.38"
+  ],
+  "url":"https://github.com/kerojiang/AnotherLunarCalendar",
+  "version":1
+}
