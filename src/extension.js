@@ -1,81 +1,40 @@
-/* extension.js
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
-
-/* exported init */
-
-
-
-const St = imports.gi.St;
+const { St, Clutter } = imports.gi;
 const Main = imports.ui.main;
-const Tweener = imports.ui.tweener;
-const Mainloop = imports.mainloop;
+const Path = imports.misc.extensionUtils.getCurrentExtension();
+const SettingHelper = Path.imports.settingHelper;
 
-let text, button;
+let panelButton;
 
-function _hideHello() {
-  Main.uiGroup.remove_actor(text);
-  text = null;
-}
-
-function _showHello() {
-  if (!text) {
-    text = new St.Label({ style_class: 'helloworld-label', text: "Hello, world!" });
-    Main.uiGroup.add_actor(text);
-  }
-  text.opacity = 255;
-  let monitor = Main.layoutManager.primaryMonitor;
-  text.set_position(monitor.x + Math.floor(monitor.width / 2 - text.width / 2),
-    monitor.y + Math.floor(monitor.height / 2 - text.height / 2));
-  Tweener.addTween(text,
-    {
-      opacity: 0,
-      time: 2,
-      transition: 'easeOutQuad',
-      onComplete: _hideHello
-    });
-
-}
-
-
-
-enable() {
-  Main.panel._rightBox.insert_child_at_index(button, 0);
-}
-
-disable() {
-  Main.panel._rightBox.remove_child(button);
-}
-
+//配置信息
+let settings;
 
 function init() {
-  button = new St.Bin({
-    style_class: 'panel-button',
-    reactive: true,
-    can_focus: true,
-    x_fill: true,
-    y_fill: false,
-    track_hover: true
+  // Create a Button with "Hello World" text
+  panelButton = new St.Bin({
+    style_class: "panel-button",
   });
-  let icon = new St.Icon({
-    icon_name: 'system-run-symbolic',
-    style_class: 'system-status-icon'
+  let panelButtonText = new St.Label({
+    text: "kero jiang",
+    y_align: Clutter.ActorAlign.CENTER,
   });
+  panelButton.set_child(panelButtonText);
 
-  button.set_child(icon);
-  button.connect('button-press-event', _showHello);
+  let folderPath = Path.dir.get_child("data").get_path();
+  print(folderPath);
+}
+
+function enable() {
+  //读取配置文件
+  settings = SettingHelper.getSettings();
+
+  // Add the button to the panel
+  Main.panel._rightBox.insert_child_at_index(panelButton, 0);
+
+  log("初始化插件");
+}
+
+function disable() {
+  // Remove the added button from panel
+  Main.panel._rightBox.remove_child(panelButton);
+  log("取消初始化插件");
 }

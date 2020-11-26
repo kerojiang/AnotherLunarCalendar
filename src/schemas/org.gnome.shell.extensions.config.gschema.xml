@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.another-lunar-calendar"
+    path="/org/gnome/shell/extensions/another-lunar-calendar/">
+
+    <key type="b" name="show-onpanel">
+     <default>true</default>
+     <summary>是否在面板显示农历</summary>
+     <description></description>
+    </key>
+    <key type="b" name="showholiday">
+     <default>true</default>
+     <summary>是否显示节假日</summary>
+     <description></description>
+    </key>
+    <key type="b" name="show-lunardate">
+     <default>true</default>
+     <summary>是否显示农历</summary>
+     <description></description>
+    </key>
+    <key type="b" name="show-workday">
+     <default>true</default>
+     <summary>是否显示工作日</summary>
+     <description></description>
+    </key>
+    <key type="b" name="show-avoidsuit">
+     <default>true</default>
+     <summary>是否显示黄道吉日</summary>
+     <description></description>
+    </key>
+    </schema>
+</schemalist>
