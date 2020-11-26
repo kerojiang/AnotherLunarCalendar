@@ -22,7 +22,7 @@ function getSettings() {
     true
   );
   if (!schemaObj) {
-    throw new Error("cannot find schemas");
+    throw new Error("读取schemas文件异常");
   }
   return new Gio.Settings({ settings_schema: schemaObj });
 }
