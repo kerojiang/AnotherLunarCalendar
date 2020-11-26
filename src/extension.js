@@ -18,36 +18,34 @@
 
 /* exported init */
 
-class Extension {
 
-const St=imports.gi.St;
-const Main=imports.ui,Main
-const Tweener=imports.ui.tweener
 
-ler text,button
+const St = imports.gi.St;
+const Main = imports.ui.main;
+const Tweener = imports.ui.tweener;
 
-function _hideHello(){
+ler text, button;
+
+function _hideHello() {
   Main.uiGroup.remove_actor(text);
-  text="";
+  text = null;
 }
 
-function _showHello(){
-  if(!text){
-    text=new St.Label({ })
+function _showHello() {
+  if (!text) {
+    text = new St.Label({ style_class: 'helloworld-label', text: "Hello,world" });
   }
 }
 
 
-    constructor() {
-    }
 
-    enable() {
-    }
-
-    disable() {
-    }
+enable() {
 }
 
+disable() {
+}
+
+
 function init() {
-    return new Extension();
+  return new Extension();
 }
