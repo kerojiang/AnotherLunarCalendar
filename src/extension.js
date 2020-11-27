@@ -1,3 +1,11 @@
+/*
+ * Copyright (c)  2020  All Rights Reserved
+ * 项目名称:AnotherLunarCalendar 
+ * 文件名称:1.js
+ * 修改日期:2020/11/27 17:58:25
+ * 作者:kerojiang
+*/
+
 const Lang = imports.lang;
 const { St, Clutter, Soup, GLib } = imports.gi;
 const Main = imports.ui.main;
@@ -24,7 +32,7 @@ function _writeLocalData(cdata) {
 }
 
 //设置发生改变
-function _settingsChanged() {}
+function _settingsChanged() { }
 //读取本地json数据
 function _readLocalData() {
   //检查本地数据
