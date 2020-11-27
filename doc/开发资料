@@ -4,3 +4,7 @@ https://stackoverflow.com/questions/8078762/gnome-javascript-documentation
 
 api在线文档
 https://gjs-docs.gnome.org
+
+
+log调试
+journalctl /usr/bin/gnome-shell -f -o cat
