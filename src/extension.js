@@ -7,7 +7,7 @@
  */
 
 const Lang = imports.lang;
-const { St, Clutter, Soup, GLib, Json, Gio } = imports.gi;
+const { St, Clutter, Soup, GLib, Gio } = imports.gi;
 const Main = imports.ui.main;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
@@ -25,7 +25,7 @@ let jsonParser;
 let dataPath;
 
 //设置发生改变
-function _settingsChanged() {}
+function _settingsChanged() { }
 
 /**
  * 读取本地数据
@@ -120,14 +120,20 @@ function _getLunarData(year, month) {
     if (isExit) {
       //读取本地文件
       jsonData = _readLocalData(filePath);
-      log(jsonData);
     } else {
       jsonData = _getHttpJson(url);
       //保存文件
       _writeLocalData(filePath, jsonData);
     }
 
-    //j解析json数据
+    //解析json数据
+    const rootObj = JSON.parse(jsonData);
+    rooObj.data.almanac.forEach(element => {
+      log("生肖:" + element.animal + "农历:" + element.lMonth + "月" + element.lDate + "阳历:" + element.month + "月" + element.day + "节日:" + element.value + "假期:" + element.desc);
+    });
+
+
+
   } catch (err) {
     logError(err, "获取农历数据异常");
   }
