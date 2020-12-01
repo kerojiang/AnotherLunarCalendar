@@ -9,23 +9,24 @@
 const Lang = imports.lang;
 const { St, Clutter, Soup, GLib, Gio } = imports.gi;
 const Main = imports.ui.main;
+const Calendar = imports.ui.calendar;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
 const ByteArray = imports.byteArray;
 
-let panelButton;
+//文件夹权限
+const PERMISSIONS_MODE = 0o744;
+
+let dateMenu;
 
 //配置信息
 let settings;
-
-//json解析器
-let jsonParser;
 
 //数据文件夹路径
 let dataPath;
 
 //设置发生改变
-function _settingsChanged() { }
+function _settingsChanged() {}
 
 /**
  * 读取本地数据
@@ -85,13 +86,33 @@ function _getHttpJson(url) {
 /**
  * 获取节假日数据
  */
-function _getHolidayData() {
-  let filename = "holiday.json";
-  let url =
-    "https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=法定节假日&resource_id=39042&format=json&tn=wisetpl";
-  let jsonData = _getHttpJson(url);
+function _getHolidayData(year) {
+  let filePath = dataPath + "/h" + year + ".json";
+  let url = "https://timor.tech/api/holiday/year/" + year;
 
   try {
+    let jsonData;
+
+    //检查本地是否存在指定数据,不存在才获取网络数据
+    let isExit = GLib.file_test(filePath, GLib.FileTest.EXISTS);
+    if (isExit) {
+      //读取本地文件
+      jsonData = _readLocalData(filePath);
+    } else {
+      jsonData = _getHttpJson(url);
+      log("获取到的节假日数据" + jsonData);
+      //保存文件
+      _writeLocalData(filePath, jsonData);
+    }
+
+    //解析json数据
+    // const rootObj = JSON.parse(jsonData);
+
+    // rootObj.data[0].holiday.forEach((element) => {
+    //   element.forEach((holiday) => {
+    //     log("日期:" + holiday.date + " 节日:" + holiday.name);
+    //   });
+    // });
   } catch (err) {
     logError(err, "获取节假日数据异常");
   }
@@ -103,7 +124,7 @@ function _getHolidayData() {
  *@param month 月
  */
 function _getLunarData(year, month) {
-  let filePath = dataPath + "/" + year + "-" + month + ".json";
+  let filePath = dataPath + "/l" + year + "-" + month + ".json";
 
   let url =
     "https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=" +
@@ -127,13 +148,26 @@ function _getLunarData(year, month) {
     }
 
     //解析json数据
-    const rootObj = JSON.parse(jsonData);
-    rooObj.data.almanac.forEach(element => {
-      log("生肖:" + element.animal + "农历:" + element.lMonth + "月" + element.lDate + "阳历:" + element.month + "月" + element.day + "节日:" + element.value + "假期:" + element.desc);
-    });
+    //const rootObj = JSON.parse(jsonData);
 
-
-
+    // rootObj.data[0].almanac.forEach((element) => {
+    //   log(
+    //     "生肖:" +
+    //       element.animal +
+    //       " 农历:" +
+    //       element.lMonth +
+    //       "月" +
+    //       element.lDate +
+    //       " 阳历:" +
+    //       element.year +
+    //       "-" +
+    //       element.month +
+    //       "-" +
+    //       element.day +
+    //       " 节日:" +
+    //       element.value
+    //   );
+    // });
   } catch (err) {
     logError(err, "获取农历数据异常");
   }
@@ -143,10 +177,10 @@ function _getLunarData(year, month) {
 function init() {
   try {
     //初始化全局变量
-    jsonParser = Json.Parser.new();
     dataPath = CurrentExtension.dir.get_child("data").get_path();
-
-    log("data文件夹路径" + dataPath);
+    if (GLib.mkdir_with_parents(dataPath, PERMISSIONS_MODE) != 0) {
+      log("创建数据文件夹失败");
+    }
 
     //读取配置文件
     settings = ExtensionUtils.getSettings(
@@ -154,6 +188,7 @@ function init() {
     );
     //属性变动触发对应操作
 
+    dateMenu = Main.panel.statusArea.dateMenu;
     // // 创建面板按钮
     // panelButton = new St.Bin({
     //   style_class: "panel-button",
@@ -173,9 +208,9 @@ function enable() {
   try {
     // // Add the button to the panel
     // Main.panel._rightBox.insert_child_at_index(panelButton, 0);
+    //获取当前日历时间
 
-    _getLunarData(2020, 11);
-    //_getHolidayData();
+    _getLunarData(2020, 1);
   } catch (err) {
     logError(err, "启用插件异常");
   }

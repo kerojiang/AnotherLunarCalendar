@@ -3,3 +3,6 @@ https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=%E6%B3%95%E5%AE%9A%
 
 农历
 https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=2050%E5%B9%B411%E6%9C%88&resource_id=39043&format=json&tn=wisetpl
+
+节假日2
+https://timor.tech/api/holiday/year/2021
