@@ -13,6 +13,7 @@ const Calendar = imports.ui.calendar;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
 const ByteArray = imports.byteArray;
+const LunarDate = CurrentExtension.imports.model;
 
 //文件夹权限
 const PERMISSIONS_MODE = 0o744;
@@ -26,7 +27,7 @@ let settings;
 let dataPath;
 
 //设置发生改变
-function _settingsChanged() {}
+function _settingsChanged() { }
 
 /**
  * 读取本地数据
@@ -85,47 +86,15 @@ function _getHttpJson(url, encode) {
   }
 }
 
-/**
- * 获取节假日数据
- * @param year 年
- */
-function _getHolidayData(year) {
-  const encode = "UTF8";
-  let filePath = dataPath + "/h" + year + ".json";
-  let url = "https://timor.tech/api/holiday/year/" + year;
 
-  try {
-    let jsonData;
-
-    //检查本地是否存在指定数据,不存在才获取网络数据
-    let isExit = GLib.file_test(filePath, GLib.FileTest.EXISTS);
-    if (isExit) {
-      //读取本地文件
-      jsonData = _readLocalData(filePath);
-    } else {
-      jsonData = _getHttpJson(url, encode);
-      //保存文件
-      _writeLocalData(filePath, jsonData);
-    }
-
-    //解析json数据
-    const rootObj = JSON.parse(jsonData);
-
-    log("rootObj" + rootObj);
-    rootObj.holiday.forEach((element) => {
-      log("日期:" + element.date + " 节日:" + element.name);
-    });
-  } catch (err) {
-    logError(err, "获取节假日数据异常");
-  }
-}
 
 /**
  * 获取农历数据
  * @param year 年
  *@param month 月
+ *@param day 日
  */
-function _getLunarData(year, month) {
+function _getLunarData(year, month, day) {
   const encode = "GBK";
   let filePath = dataPath + "/l" + year + "-" + month + ".json";
 
@@ -151,26 +120,33 @@ function _getLunarData(year, month) {
     }
 
     //解析json数据
-    //const rootObj = JSON.parse(jsonData);
+    const rootObj = JSON.parse(jsonData);
 
-    // rootObj.data[0].almanac.forEach((element) => {
-    //   log(
-    //     "生肖:" +
-    //       element.animal +
-    //       " 农历:" +
-    //       element.lMonth +
-    //       "月" +
-    //       element.lDate +
-    //       " 阳历:" +
-    //       element.year +
-    //       "-" +
-    //       element.month +
-    //       "-" +
-    //       element.day +
-    //       " 节日:" +
-    //       element.value
-    //   );
-    // });
+    rootObj.data[0].almanac.forEach((e) => {
+
+    if(e.year==year&&e.month==month){
+      //创建农历dic
+      
+    }
+
+
+      log(
+        "生肖:" +
+          element.animal +
+          " 农历:" +
+          element.lMonth +
+          "月" +
+          element.lDate +
+          " 阳历:" +
+          element.year +
+          "-" +
+          element.month +
+          "-" +
+          element.day +
+          " 节日:" +
+          element.value
+      );
+    });
   } catch (err) {
     logError(err, "获取农历数据异常");
   }
@@ -215,8 +191,8 @@ function enable() {
     let localDateTime = GLib.DateTime.new_now_local();
     let year = localDateTime.get_year();
     let month = localDateTime.get_month();
-    _getLunarData(year, month);
-    _getHolidayData(year);
+    let day = localDateTime.get_day_of_month();
+    _getLunarData(year, month, day);
   } catch (err) {
     logError(err, "启用插件异常");
   }
