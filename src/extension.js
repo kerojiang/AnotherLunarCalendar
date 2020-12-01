@@ -60,8 +60,9 @@ function _writeLocalData(filePath, contents) {
 /**
  * 获取http数据
  * @param url http地址
+ * @param encode 数据编码
  */
-function _getHttpJson(url) {
+function _getHttpJson(url, encode) {
   let session = Soup.Session.new();
   //超时时间
   session.timeout = 2;
@@ -72,7 +73,7 @@ function _getHttpJson(url) {
     if (status_code == Soup.Status.OK) {
       let result = ByteArray.toString(
         ByteArray.fromGBytes(message.response_body_data),
-        "GBK"
+        encode
       );
       return result;
     } else {
@@ -89,32 +90,31 @@ function _getHttpJson(url) {
  * @param year 年
  */
 function _getHolidayData(year) {
+  const encode = "UTF8";
   let filePath = dataPath + "/h" + year + ".json";
   let url = "https://timor.tech/api/holiday/year/" + year;
 
   try {
     let jsonData;
-    log("-------------------请求地址-------------------" + url);
+
     //检查本地是否存在指定数据,不存在才获取网络数据
     let isExit = GLib.file_test(filePath, GLib.FileTest.EXISTS);
     if (isExit) {
       //读取本地文件
       jsonData = _readLocalData(filePath);
     } else {
-      jsonData = _getHttpJson(url);
-      log("获取到的节假日数据" + jsonData);
+      jsonData = _getHttpJson(url, encode);
       //保存文件
       _writeLocalData(filePath, jsonData);
     }
 
     //解析json数据
-    // const rootObj = JSON.parse(jsonData);
+    const rootObj = JSON.parse(jsonData);
 
-    // rootObj.data[0].holiday.forEach((element) => {
-    //   element.forEach((holiday) => {
-    //     log("日期:" + holiday.date + " 节日:" + holiday.name);
-    //   });
-    // });
+    log("rootObj" + rootObj);
+    rootObj.holiday.forEach((element) => {
+      log("日期:" + element.date + " 节日:" + element.name);
+    });
   } catch (err) {
     logError(err, "获取节假日数据异常");
   }
@@ -126,6 +126,7 @@ function _getHolidayData(year) {
  *@param month 月
  */
 function _getLunarData(year, month) {
+  const encode = "GBK";
   let filePath = dataPath + "/l" + year + "-" + month + ".json";
 
   let url =
@@ -144,7 +145,7 @@ function _getLunarData(year, month) {
       //读取本地文件
       jsonData = _readLocalData(filePath);
     } else {
-      jsonData = _getHttpJson(url);
+      jsonData = _getHttpJson(url, encode);
       //保存文件
       _writeLocalData(filePath, jsonData);
     }
@@ -214,7 +215,7 @@ function enable() {
     let localDateTime = GLib.DateTime.new_now_local();
     let year = localDateTime.get_year();
     let month = localDateTime.get_month();
-    //_getLunarData(year, month);
+    _getLunarData(year, month);
     _getHolidayData(year);
   } catch (err) {
     logError(err, "启用插件异常");
