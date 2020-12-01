@@ -63,7 +63,8 @@ function _writeLocalData(filePath, contents) {
  */
 function _getHttpJson(url) {
   let session = Soup.Session.new();
-
+  //超时时间
+  session.timeout = 2;
   let message = Soup.Message.new("GET", url);
 
   try {
@@ -85,6 +86,7 @@ function _getHttpJson(url) {
 
 /**
  * 获取节假日数据
+ * @param year 年
  */
 function _getHolidayData(year) {
   let filePath = dataPath + "/h" + year + ".json";
@@ -92,7 +94,7 @@ function _getHolidayData(year) {
 
   try {
     let jsonData;
-
+    log("-------------------请求地址-------------------" + url);
     //检查本地是否存在指定数据,不存在才获取网络数据
     let isExit = GLib.file_test(filePath, GLib.FileTest.EXISTS);
     if (isExit) {
@@ -209,8 +211,11 @@ function enable() {
     // // Add the button to the panel
     // Main.panel._rightBox.insert_child_at_index(panelButton, 0);
     //获取当前日历时间
-
-    _getLunarData(2020, 1);
+    let localDateTime = GLib.DateTime.new_now_local();
+    let year = localDateTime.get_year();
+    let month = localDateTime.get_month();
+    //_getLunarData(year, month);
+    _getHolidayData(year);
   } catch (err) {
     logError(err, "启用插件异常");
   }
