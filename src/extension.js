@@ -26,7 +26,7 @@ let settings;
 let dataPath;
 
 //数据集合
-let lunarMap;
+let lunarMap = new Map();
 
 //当前系统时间
 let LocalDateTime = GLib.DateTime.new_now_local();
@@ -102,6 +102,7 @@ function _panelClockUpdate() {
         " " + model.LunarYear + "年" + model.LunarMonth + "月" + model.LunarDay;
     }
   }
+
   dateMenu._clockDisplay.text = dateMenu._clock.clock + lunarString;
 }
 
@@ -252,14 +253,6 @@ function init() {
     );
     settings.connect("changed", function () {});
 
-    lunarMap = new Map();
-    dateMenu = Main.panel.statusArea.dateMenu;
-
-    dateMenu._clock.connect(
-      "notify::clock",
-      Lang.bind(dateMenu, _panelClockUpdate)
-    );
-
     //数据准备
     _getLunarData(LocalDateTime.get_year(), LocalDateTime.get_month());
 
@@ -280,6 +273,11 @@ function init() {
 //启动插件
 function enable() {
   try {
+    dateMenu = Main.panel.statusArea.dateMenu;
+    dateMenu._clock.connect(
+      "notify::clock",
+      Lang.bind(dateMenu, _panelClockUpdate)
+    );
     _panelClockUpdate();
   } catch (err) {
     logError(err, "启用插件异常");
@@ -289,6 +287,7 @@ function enable() {
 //结束插件
 function disable() {
   try {
+    dateMenu._clock.run_dispose();
   } catch (err) {
     logError(err, "禁用插件异常");
   }
