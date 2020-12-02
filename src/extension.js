@@ -13,7 +13,6 @@ const Calendar = imports.ui.calendar;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
 const ByteArray = imports.byteArray;
-const LunarDate = CurrentExtension.imports.model;
 
 //文件夹权限
 const PERMISSIONS_MODE = 0o744;
@@ -26,10 +25,90 @@ let settings;
 //数据文件夹路径
 let dataPath;
 
-//设置发生改变
-function _settingsChanged() { }
+//数据集合
+let lunarMap;
 
-/**
+//当前系统时间
+let LocalDateTime = GLib.DateTime.new_now_local();
+
+//数据model
+class LunarModel {
+  constructor() {
+    //属相
+    this.Animal = "";
+    //不宜
+    this.Avoid = "";
+    //宜
+    this.Suit = "";
+    //农历年
+    this.LunarYear = "";
+    //农历月
+    this.LunarMonth = "";
+    //农历日
+    this.LunarDay = "";
+    //是否放假
+    this.IsHoliday = "0";
+    //节假日名称
+    this.HolidayName = "";
+    //节气
+    this.Term = "";
+    //阳历年
+    this.Year = "";
+    //阳历月
+    this.Month = "";
+    //阳历日
+    this.Day = "";
+    //星期
+    this.WeekDay = "";
+  }
+
+  //获取Key值
+  GetKeyString() {
+    return this.Year + this.Month + this.Day;
+  }
+
+  //获取农历日期格式
+  GetLunarDateString() {
+    return this.LunarYear + "年" + this.LunarMonth + "月" + this.LunarDay;
+  }
+}
+
+//自定义日历控件
+// var LunarCalendar = new Lang.Class({
+//   Name: "LunarCalendar",
+//   Extends: Calendar,
+
+//   _isWorkDay(date) {
+//     super._isWorkDay(date);
+//   },
+
+//   canClose() {
+//     return false;
+//   },
+// });
+
+//更新面板日期
+function _panelClockUpdate() {
+  let lunarString = "\u2001";
+  let showOnPanel = settings.get_boolean("show-onpanel");
+  if (showOnPanel) {
+    let todayKey =
+      String(LocalDateTime.get_year()) +
+      String(LocalDateTime.get_month()) +
+      String(LocalDateTime.get_day_of_month());
+    let model = lunarMap.get(todayKey);
+    if (model) {
+      lunarString =
+        " " + model.LunarYear + "年" + model.LunarMonth + "月" + model.LunarDay;
+    }
+  }
+  dateMenu._clockDisplay.text = dateMenu._clock.clock + lunarString;
+}
+
+//设置发生改变
+function _settingsChanged() {}
+
+/**odel
  * 读取本地数据
  * @param filePath 文件路径
  */
@@ -86,15 +165,12 @@ function _getHttpJson(url, encode) {
   }
 }
 
-
-
 /**
  * 获取农历数据
  * @param year 年
  *@param month 月
- *@param day 日
  */
-function _getLunarData(year, month, day) {
+function _getLunarData(year, month) {
   const encode = "GBK";
   let filePath = dataPath + "/l" + year + "-" + month + ".json";
 
@@ -121,34 +197,43 @@ function _getLunarData(year, month, day) {
 
     //解析json数据
     const rootObj = JSON.parse(jsonData);
-
     rootObj.data[0].almanac.forEach((e) => {
-
-    if(e.year==year&&e.month==month){
-      //创建农历dic
-      
-    }
-
-
-      log(
-        "生肖:" +
-          element.animal +
-          " 农历:" +
-          element.lMonth +
-          "月" +
-          element.lDate +
-          " 阳历:" +
-          element.year +
-          "-" +
-          element.month +
-          "-" +
-          element.day +
-          " 节日:" +
-          element.value
-      );
+      if (e.year == year && e.month == month) {
+        //创建农历obj
+        const model = new LunarModel();
+        model.Year = e.year;
+        model.Month = e.month;
+        model.Day = e.day;
+        model.Animal = e.animal;
+        model.Avoid = e.avoid;
+        model.Suit = e.suit;
+        model.LunarYear = e.gzYear;
+        model.LunarMonth = e.lMonth;
+        model.LunarDay = e.lDate;
+        model.WeekDay = e.cnDay;
+        //是否放假
+        if (e.status) {
+          model.IsHoliday = true;
+        } else {
+          model.IsHoliday = false;
+        }
+        if (e.value) {
+          model.HolidayName = e.value;
+        }
+        model.Term = e.term;
+        lunarMap.set(model.GetKeyString(), model);
+      }
     });
   } catch (err) {
     logError(err, "获取农历数据异常");
+  }
+}
+
+/**
+ * 显示农历数据
+ */
+function _showLunarData() {
+  if (lunarMap) {
   }
 }
 
@@ -165,9 +250,19 @@ function init() {
     settings = ExtensionUtils.getSettings(
       "org.gnome.shell.extensions.another-lunar-calendar"
     );
-    //属性变动触发对应操作
+    settings.connect("changed", function () {});
 
+    lunarMap = new Map();
     dateMenu = Main.panel.statusArea.dateMenu;
+
+    dateMenu._clock.connect(
+      "notify::clock",
+      Lang.bind(dateMenu, _panelClockUpdate)
+    );
+
+    //数据准备
+    _getLunarData(LocalDateTime.get_year(), LocalDateTime.get_month());
+
     // // 创建面板按钮
     // panelButton = new St.Bin({
     //   style_class: "panel-button",
@@ -185,14 +280,7 @@ function init() {
 //启动插件
 function enable() {
   try {
-    // // Add the button to the panel
-    // Main.panel._rightBox.insert_child_at_index(panelButton, 0);
-    //获取当前日历时间
-    let localDateTime = GLib.DateTime.new_now_local();
-    let year = localDateTime.get_year();
-    let month = localDateTime.get_month();
-    let day = localDateTime.get_day_of_month();
-    _getLunarData(year, month, day);
+    _panelClockUpdate();
   } catch (err) {
     logError(err, "启用插件异常");
   }
@@ -201,8 +289,6 @@ function enable() {
 //结束插件
 function disable() {
   try {
-    // // Remove the added button from panel
-    // Main.panel._rightBox.remove_child(panelButton);
   } catch (err) {
     logError(err, "禁用插件异常");
   }
