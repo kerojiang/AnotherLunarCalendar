@@ -8,6 +8,7 @@
 
 const Lang = imports.lang;
 const { St, Clutter, Soup, GLib, Gio } = imports.gi;
+const Main = imports.ui.main;
 const Calendar = imports.ui.calendar;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
@@ -20,9 +21,15 @@ const LunarDate = new Lang.Class({
   Name: "LunarDate",
   _init: function () {
     this.isEnable = false;
-    this.lunarMap = new Map();
+    this.lunarMap = null;
     this.settings = null;
+    this.settingChangeSignal = null;
     this.dataPath = "";
+    this.localDateTime = GLib.DateTime.new_now_local();
+    //面板日期控件
+    this.panelDateControl = null;
+    //日历控件
+    this.calendarControl = null;
   },
   enable: function () {
     this.isEnable = true;
@@ -30,19 +37,65 @@ const LunarDate = new Lang.Class({
       _initSetting();
       _onSettingChanged();
     }
+    if (this.settingChangeSignal == null) {
+      //绑定设置信息变化事件
+      this.settingChangeSignal = this.settings.connect(
+        "changed",
+        Lang.bind(this, this._onSettingChanged)
+      );
+    }
     if (this.dataPath == "") {
       _initDataPath();
     }
     if (this.lunarMap == null) {
+      this.lunarMap = new Map();
+      //获取当前日期
+      _initLunarData(
+        thi.localDateTime.get_year(),
+        this.localDateTime.get_month()
+      );
+    }
+    if (this.panelDateControl == null) {
+      this.panelDateControl = Main.panel.statusArea.dateMenu;
+    }
+    if (this.calendarControl == null) {
     }
   },
-  disable: function () {},
+  disable: function () {
+    this.isEnable = false;
+
+    if (this.settingChangeSignal != null) {
+      this.settings.disconnect(this.settingChangeSignal);
+      this.settingChangeSignal = null;
+    }
+  },
   _initSetting: function () {
     this.settings = ExtensionUtils.getSettings(
       "org.gnome.shell.extensions.another-lunar-calendar"
     );
   },
   _onSettingChanged: function () {},
+  _initPanelLunarDate: function () {
+    let lunarString = "\u2001";
+    let showOnPanel = settings.get_boolean("show-onpanel");
+    if (showOnPanel) {
+      let todayKey =
+        String(LocalDateTime.get_year()) +
+        String(LocalDateTime.get_month()) +
+        String(LocalDateTime.get_day_of_month());
+      let model = lunarMap.get(todayKey);
+      if (model) {
+        lunarString =
+          " " +
+          model.LunarYear +
+          "年" +
+          model.LunarMonth +
+          "月" +
+          model.LunarDay;
+      }
+    }
+  },
+  _initCalendarLunarDate: function () {},
   _initDataPath: function () {
     let path = CurrentExtension.dir.get_child("data").get_path();
     if (GLib.mkdir_with_parents(path, PERMISSIONS_MODE) === 0) {
@@ -51,7 +104,7 @@ const LunarDate = new Lang.Class({
   },
   _initLunarData: function (year, month) {
     const encode = "GBK";
-    let filePath = dataPath + "/l" + year + "-" + month + ".json";
+    let filePath = this.dataPath + "/l" + year + "-" + month + ".json";
 
     let url =
       "https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=" +
@@ -117,14 +170,14 @@ const LunarDate = new Lang.Class({
       logError(err, "读取本地数据异常");
     }
   },
-  _writeLocalData(filePath, contents) {
+  _writeLocalData: function (filePath, contents) {
     try {
       GLib.file_set_contents(filePath, contents);
     } catch (err) {
       logError(err, "写入本地数据异常");
     }
   },
-  _getHttpJson(url, encode) {
+  _getHttpJson: function (url, encode) {
     let session = Soup.Session.new();
     //超时时间
     session.timeout = 2;
