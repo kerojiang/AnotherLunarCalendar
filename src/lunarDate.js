@@ -6,9 +6,10 @@
  * 作者:kerojiang
  */
 const Lang = imports.lang;
-const { St, Clutter, Soup, GLib, Gio } = imports.gi;
+const { St, Clutter, Soup, GLib, Gdk, GnomeDesktop, Gio } = imports.gi;
 const Main = imports.ui.main;
 const Calendar = imports.ui.calendar;
+const MessageList = imports.ui.messageList;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
 const ByteArray = imports.byteArray;
@@ -16,62 +17,96 @@ const ByteArray = imports.byteArray;
 //文件夹权限
 const PERMISSIONS_MODE = 0o744;
 
+//设置信息
+let settings;
+
+
 //左边消息
-var LunarCalendarSection = class LunarCalendarSection extends MessageList.MessageListSection {
-  constructor() {
-    super("Lunar Calendar");
+var LunarCalendarMessage = GObject.registerClass(
+  class LunarCalendarMessage extends MessageList.Message {
 
-    this._title = new St.Button({
-      style_class: "events-section-title",
-      label: "",
-      x_align: St.Align.START,
-      can_focus: true,
-    });
-    this.actor.insert_child_below(this._title, null);
-  }
+    canClear() { return false; }
 
-  get allowed() {
-    return Main.sessionMode.showCalendarEvents;
-  }
+    canClose() { return false; }
 
-  _reloadEvents() {
-    this._reloading = true;
-
-    this._list.destroy_all_children();
-
-    //节日
-    let jr = settings.get_boolean("jieri") ? ld.jieri : "";
-    if (jr != null && jr != "") {
-      let _jr_str = ld.jieri.replace("|", "\n");
-      this.addMessage(new LunarCalendarMessage("节日", _jr_str, false));
+    _sync() {
+      super._sync();
+      this._closeButton.visible = this.canClear();
     }
-    let jq = settings.get_boolean("jieri") ? ld.jieqi : "";
-    if (jq != null && jq != "") {
-      this.addMessage(new LunarCalendarMessage("二十四节气", jq, false));
+  });
+
+
+//右边消息
+var LunarCalendarSection = GObject.registerClass(
+  class LunarCalendarSection extends MessageList.MessageListSection {
+
+    _init() {
+      super._init('Lunar Calendar');
+
+      this._title = new St.Button({
+        style_class: 'events-section-title',
+        label: '',
+        x_align: Clutter.ActorAlign.START,
+        can_focus: true
+      });
+      this.insert_child_below(this._title, null);
     }
-    this._reloading = false;
-    this._sync();
-  }
 
-  setDate(date) {
-    super.setDate(date);
-    ld.setDate(date);
-    let cny = ld.ganzhi + "(" + ld.shengxiao + ")";
-    this._title.label = ld.lunarString();
-    this._reloadEvents();
-  }
-
-  _shouldShow() {
-    return true;
-  }
-
-  _sync() {
-    if (this._reloading) {
-      return;
+    get allowed() {
+      return true;
     }
-    super._sync();
-  }
-};
+
+    _reloadEvents() {
+      this._reloading = true;
+
+      this._list.destroy_all_children();
+
+      let todayKey =
+        String(this.localDateTime.get_year()) +
+        String(this.localDateTime.get_month()) +
+        String(this.localDateTime.get_day_of_month());
+
+      let todayModel = this.lunarMap.get(todayKey);
+
+      //显示节气
+      this.addMessage(new LunarCalendarMessage("节气", todayModel.Term, false));
+
+      //是否显示节假日
+      if (this.settings.get_boolean("showholiday")) {
+        this.addMessage(new LunarCalendarMessage("节日", todayModel.HolidayName, false));
+      }
+
+      //是否显示黄道吉日
+      if (this.settings.get_boolean("show-avoidsuit")) {
+        this.addMessage(new LunarCalendarMessage("宜", todayModel.Suit, false));
+        this.addMessage(new LunarCalendarMessage("忌", todayModel.Avoid, false));
+      }
+
+      this._reloading = false;
+      this._sync();
+    }
+
+    setDate(date) {
+      // 3.38
+      if (super.setDate) {
+        super.setDate(date);
+      }
+      ld.setDateNoon(date);
+      let cny = ld.strftime("%(shengxiao)");
+      this._title.label = ld.strftime("%(NIAN)年%(YUE)月%(RI)日");
+      this._reloadEvents();
+    }
+
+    _shouldShow() { return true; }
+
+    _sync() {
+      if (this._reloading)
+        return;
+
+      super._sync();
+    }
+  });
+
 
 //农历日历
 let lunarButton = function (orig_button, iter_date, oargs) {
@@ -121,9 +156,21 @@ var LunarDate = new Lang.Class({
   enable: function () {
     this.isEnable = true;
 
+    //读取配置文件
     if (this.settings == null) {
       this._initSetting();
     }
+
+
+    if (this.dataPath == "") {
+      this._initDataPath();
+    }
+    //获取当前日期的农历数据
+    this._initLunarData(
+      this.localDateTime.get_year(),
+      this.localDateTime.get_month()
+    );
+
     if (this.settingChangeSignal == null) {
       //绑定设置信息变化事件
       this.settingChangeSignal = this.settings.connect(
@@ -131,37 +178,26 @@ var LunarDate = new Lang.Class({
         Lang.bind(this, this._onSettingChanged)
       );
     }
-    if (this.dataPath == "") {
-      this._initDataPath();
-    }
-    if (this.lunarMap == null) {
-      this.lunarMap = new Map();
-      //获取当前日期
-      this._initLunarData(
-        this.localDateTime.get_year(),
-        this.localDateTime.get_month()
-      );
-    }
-    if (this.dateMenuControl == null) {
-      this.dateMenuControl = Main.panel.statusArea.dateMenu;
-      this._initPanelLunarDate();
-    }
 
+    //初始化日期控件
+    this.dateMenuControl = Main.panel.statusArea.dateMenu;
+    this.calendarControl = this.dateMenuControl._calendar;
+
+    log(
+      "--------------------------------------------------------初始化日历日期" +
+      this.calendarControl._monthLabel.text +
+      this.calendarControl._dateLabel.text
+    );
+    this._initPanelLunarDate();
+
+    //显示时钟面板农历
     if (this.panelClockChangeSignal == null) {
       this.panelClockChangeSignal = this.dateMenuControl._clock.connect(
         "notify::clock",
         Lang.bind(this, this._initPanelLunarDate)
       );
     }
-    if (this.calendarControl == null) {
-      this.calendarControl = this.dateMenuControl._calendar;
 
-      log(
-        "--------------------------------------------------------初始化日历日期" +
-          this.calendarControl._monthLabel.text +
-          this.calendarControl._dateLabel.text
-      );
-    }
   },
   disable: function () {
     this.isEnable = false;
@@ -195,50 +231,84 @@ var LunarDate = new Lang.Class({
     }
   },
   _initPanelLunarDate: function () {
-    let lunarString = "";
     if (this.isEnable) {
-      let showOnPanel = this.settings.get_boolean("show-onpanel");
-      if (showOnPanel) {
-        let todayKey =
-          String(this.localDateTime.get_year()) +
-          String(this.localDateTime.get_month()) +
-          String(this.localDateTime.get_day_of_month());
 
-        let model = this.lunarMap.get(todayKey);
-        if (model) {
-          lunarString =
-            " " +
-            model.LunarYear +
-            "年" +
-            model.LunarMonth +
-            "月" +
-            model.LunarDay;
-        }
+      let todayKey =
+        String(this.localDateTime.get_year()) +
+        String(this.localDateTime.get_month()) +
+        String(this.localDateTime.get_day_of_month());
+
+      let todayModel = this.lunarMap.get(todayKey);
+
+
+
+      //是否在面板显示农历
+      if (this.settings.get_boolean("show-onpanel")) {
+        let lunarString = " " + todayModel.LunarYear + "年" + todayModel.LunarMonth + "月" + todayModel.LunarDay;
+
+        this.dateMenuControl._clockDisplay.text =
+          this.dateMenuControl._clock.clock + lunarString;
       }
+      //是否显示节假日
+      if (this.settings.get_boolean("showholiday")) {
+
+      }
+
+      //是否显示农历
+      if (this.settings.get_boolean("show-lunardate")) {
+
+      }
+
+      //是否显示工作日
+      if (this.settings.get_boolean("show-workday")) {
+
+      }
+
+      //是否显示黄道吉日
+      if (this.settings.get_boolean("show-avoidsuit")) {
+
+      }
+
+    } else {
+      this.dateMenuControl._clockDisplay.text =
+        this.dateMenuControl._clock.clock;
     }
-    this.dateMenuControl._clockDisplay.text =
-      this.dateMenuControl._clock.clock + lunarString;
+
   },
-  _initCalendarLunarDate: function () {},
+  _initCalendarLunarDate: function () { },
   _initDataPath: function () {
     if (this.isEnable) {
       let path = CurrentExtension.dir.get_child("data").get_path();
+      //如果data文件夹不存在就自动创建
       if (GLib.mkdir_with_parents(path, PERMISSIONS_MODE) === 0) {
         this.dataPath = path;
       }
     }
   },
-  _initLunarData: function (year, month) {
-    if (this.isEnable) {
-      const encode = "GBK";
-      let filePath = this.dataPath + "/" + year + "-" + month + ".json";
+  //调用对应api获取数据,api:0百度,
+  _getAPIData(api, year, month) {
+    let encode = ""
+    let url = "";
 
-      let url =
-        "https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=" +
+    if (api == 0) {
+      encode = "GBK"
+      url = "https://sp0.baidu.com/8aQDcjqpAAV3otqbppnN2DJv/api.php?query=" +
         year +
         "年" +
         month +
         "月&resource_id=39043&format=json&tn=wisetpl";
+    }
+
+    return this._getHttpJson(url, encode);
+
+  },
+  //初始化农历数据
+  _initLunarData: function (year, month) {
+    if (this.isEnable) {
+
+      this.lunarMap = new Map();
+
+      let filePath = this.dataPath + "/" + year + "-" + month + ".json";
 
       try {
         let jsonData;
@@ -248,7 +318,8 @@ var LunarDate = new Lang.Class({
           //读取本地文件
           jsonData = this._readLocalData(filePath);
         } else {
-          jsonData = this._getHttpJson(url, encode);
+          //获取网络数据
+          jsonData = this._getAPIData(0, year, month);
           //保存文件
           this._writeLocalData(filePath, jsonData);
         }
